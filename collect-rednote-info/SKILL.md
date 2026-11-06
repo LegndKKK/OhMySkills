@@ -119,7 +119,7 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
 2. 读 `note.json`：标题、`desc` 正文、标签、互动
 3. 勾了「图片转文字」就**逐张** `read` 下载好的 `images/NN.jpg`，把图上文字完整抄下来；公式保留符号，表格式内容保持行列。
 
-   **默认是模型读图**。图多且文字规整（清单、价格表、整页正文型长图）时，可以先用本地 PaddleOCR 出草稿再让模型校对，见「OCR 后端（可选）」；但 OCR 只出文字、不分层级、读不了手写和箭头路线，**别把它的输出直接贴进 md**。
+   **默认是模型读图**。图多且文字规整（清单、价格表、整页正文型长图）时，可以调 `local-ocr` skill 出草稿再让模型校对；但 OCR 只出文字、不分层级、读不了手写和箭头路线，**别把它的输出直接贴进 md**。
 4. 勾了「评论区」：`python scripts/xhs.py comments <笔记URL>`，再读 `comments.json`
 
    **评论区默认只看文字**：不下载、不转写评论里夹带的图片（`comments` 命令本身也只取文本块）。用户明确要"评论区的图"时再单独处理，别默认把评论图算进"图片转文字"的工作量里。
@@ -172,7 +172,6 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
 | `search "<关键词>" --limit N` | 搜索页滚动取结果（固定格式 JSON） | 需 Cookie；有头 Chrome |
 | `note <url> --download DIR` | 正文、标签、图片 | 多数免登录 |
 | `comments <url> --limit N` | 评论区 | 有头 Chrome；不登录只看得到部分 |
-| `ocr.py --dir DIR` | 本地 PaddleOCR 批量转写（可选加速） | `.venv` 已装；见「OCR 后端」 |
 
 - `search` 额外参数：`--limit`（默认 40）、`--max-scroll`（默认 20）、`--interval`（默认 2.2s，**别调太小，会触发风控**）、`--wait`（首屏等待，默认 9s）
 - Cookie 默认读 `%TEMP%\xhs\cookie.txt`，也可 `--cookie-file` / `--cookie`
@@ -180,39 +179,19 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
 - 浏览器依赖 `pip install selenium` + 本机 Chrome；`--headless` 会被踢回登录页，别加
 - 报「笔记不在 noteDetailMap」= `xsec_token` 过期，回主页/搜索页重新取链接
 
-## OCR 后端（可选）
+## 图片转文字：默认模型，OCR 是外部可选件
 
-**默认走模型读图**（视觉理解：懂版式、箭头路线、手写字、能判断"这张图在讲什么"）。
-本地 PaddleOCR 是**可选的加速通道**，只在文字量大且排版规整时开，跑完仍要让模型校对一遍。
+本 skill **不做 OCR**。图片转文字默认逐张 `read`（模型读图：懂版式、手写、箭头、语义）。
 
-| 场景 | 用哪个 |
-|---|---|
-| 判断相关性、手写体、路线图、多列海报、需要理解语义 | **模型读图（默认）** |
-| 整页文字/清单/价格表，量大，只要逐字文字 | PaddleOCR 出草稿 → 模型校对 |
-| 批量重跑、机器可读的纯文本归档 | PaddleOCR |
+只有"文字量大且排版规整"（整页文字、清单、价格表）时，才调独立的 `local-ocr` skill 加速：
 
 ```powershell
-# 一次进程批量跑（模型只加载一次），结果写 JSON
-python scripts/ocr.py --dir "<images目录>" --json "out\ocr.json"
-
-# 直接出 markdown 片段（### NN + ![](相对路径) + 文字）
-python scripts/ocr.py --dir "<images目录>" --md
-
-# 更准但慢 3~5 倍；认不出语言时可换 --lang
-python scripts/ocr.py --dir "<images目录>" --model server --lang ch
+python local-ocr\scripts\ocr.py --dir "<images目录>" --json "out\ocr.json"
 ```
 
-- 运行时（venv + 权重，约 3.8 GB）在 `E:\models\paddleocr`，**不在 skill 仓库里**；用系统 `python` 调用时脚本会自动切到那里的 venv
-- 换机器或换盘符：设 `PADDLE_OCR_HOME`，目录下要有 `venv\Scripts\python.exe` 和 `paddlex\official_models`
-- 设备默认 `auto`：有可用 CUDA 就走 `gpu:0`，否则 `cpu`；也可显式 `--device cpu`
-- 首次运行自动下载 PP-OCRv5 权重到 `.cache/paddlex/`（mobile 约 20 MB，1~2 分钟；server 约 100 MB，首次 20 s 左右起）
-- 下载源默认 ModelScope（HF 在国内常卡 TLS 握手），可用 `PADDLE_PDX_MODEL_SOURCE=HuggingFace` 覆盖
-- 实测（本机 4090）：mobile 8 张信息图总耗时 1.45 s，单张 0.09–0.39 s，模型加载 1.5 s；CPU 约 5~6 s/张
-- `auto` 判断的是"paddle 编译了 CUDA 且能枚举到卡"，不是"显卡空闲"；显存被占满时请显式 `--device cpu`
-- 输出 JSON 里每张图有 `text`（按行合并）、`lines`、`boxes`、`elapsed`、`score`；`score` 偏低说明图糊或字太艺术，改回模型读图
-- OCR 的已知短板：不分标题/正文层级、多列海报会串行、手写体和艺术字基本失效、图里的箭头关系全丢——**这些情况一律回到模型读图**
-- 运行时是独立 venv（`E:\models\paddleocr`，不进仓库），不动系统 Python；PaddleOCR 缺失或跑挂时**直接回落模型读图**，不要卡在这
-- 报 `ModuleNotFoundError: paddleocr` / 找不到运行时目录，就是这个可选后端没装好，按仓库 README 装或跳过，不影响主流程
+- OCR 输出必须模型校对后再落 md：它不分层级、多列会串行、手写体和路线图无效
+- `local-ocr` 没装或跑挂 → **直接回落模型读图**，不要卡在这
+- 运行时在 `E:\models\paddleocr`（不进仓库），细节看 `local-ocr/SKILL.md`
 
 ## 已知边界
 
