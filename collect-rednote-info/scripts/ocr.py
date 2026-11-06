@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import statistics
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -36,6 +37,27 @@ except Exception:
 
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 
+# 运行时（venv + 权重）统一放在 E:\models\paddleocr，skill 仓库里不存二进制。
+# 换机器/换盘符时用 PADDLE_OCR_HOME 覆盖即可。
+_OCR_HOME = Path(os.environ.get("PADDLE_OCR_HOME") or r"E:\models\paddleocr")
+_VENV_PY = _OCR_HOME / "venv" / "Scripts" / "python.exe"
+
+
+def _ensure_runtime():
+    """用系统 python 直接跑时，自动切到 E:\\models\\paddleocr\\venv。"""
+    if os.environ.get("PADDLE_OCR_REEXEC") == "1":
+        return
+    if sys.prefix.lower() != sys.base_prefix.lower():  # 已经在 venv 里
+        return
+    if not _VENV_PY.exists():
+        return
+    env = dict(os.environ, PADDLE_OCR_REEXEC="1")
+    cmd = [str(_VENV_PY), str(Path(__file__).resolve()), *sys.argv[1:]]
+    raise SystemExit(subprocess.call(cmd, env=env))
+
+
+_ensure_runtime()
+
 # 本机全局 PYTHONPATH=E:\install 会把系统 numpy 顶到 site-packages 前面，
 # 和 venv 里 paddle 要求的 numpy 版本打架；venv 模式下直接不认 PYTHONPATH。
 if sys.prefix != sys.base_prefix and os.environ.get("PYTHONPATH"):
@@ -44,9 +66,8 @@ if sys.prefix != sys.base_prefix and os.environ.get("PYTHONPATH"):
     sys.path[:] = [p for p in sys.path
                    if str(Path(p or ".").resolve()).lower() not in _extra]
 
-# 让模型权重落在 skill 目录，别散到用户主目录
-_HERE = Path(__file__).resolve().parent.parent
-os.environ.setdefault("PADDLE_PDX_CACHE_HOME", str(_HERE / ".cache" / "paddlex"))
+# 权重落在 E:\models\paddleocr\paddlex
+os.environ.setdefault("PADDLE_PDX_CACHE_HOME", str(_OCR_HOME / "paddlex"))
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 # 默认走 ModelScope：国内访问 HF 经常卡在 TLS 握手（可在外部覆盖）
 os.environ.setdefault("PADDLE_PDX_MODEL_SOURCE", "ModelScope")
@@ -91,7 +112,13 @@ def pick_device(arg):
 
 
 def build_ocr(lang, model, device):
-    from paddleocr import PaddleOCR
+    try:
+        from paddleocr import PaddleOCR
+    except ImportError:
+        sys.exit(
+            f"缺少 paddleocr：请装到 {_VENV_PY.parent.parent}（或设 PADDLE_OCR_HOME 指向已装好的运行时）\n"
+            f"参考 README 的「可选：本地 PaddleOCR」一节；装不好就直接用模型读图，不影响主流程。"
+        )
 
     kwargs = dict(
         lang=lang,

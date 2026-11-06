@@ -28,16 +28,18 @@ Cookie 默认从 `%TEMP%\xhs\cookie.txt` 读取，不要提交进仓库。
 图片转文字默认由模型读图（懂版式、手写、路线图）。文字规整的长图想跑得快，可以用本地 PaddleOCR：
 
 ```powershell
-# 一次性装到 skill 自己的 venv（不污染系统 Python，约 1.5 GB）
-python -m venv collect-rednote-info/.venv
-collect-rednote-info/.venv/Scripts/python.exe -m pip install paddlepaddle-gpu==3.3.1 --index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/
-collect-rednote-info/.venv/Scripts/python.exe -m pip install paddleocr
+# 装到 E:\models\paddleocr（不要放进 skill 目录，别提交进仓库）
+$home = "E:\models\paddleocr"
+python -m venv "$home\venv"
+"$home\venv\Scripts\python.exe" -m pip install paddlepaddle-gpu==3.3.1 --index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/
+"$home\venv\Scripts\python.exe" -m pip install paddleocr
 
-# 批量转写（模型只加载一次）
-collect-rednote-info/.venv/Scripts/python.exe collect-rednote-info/scripts/ocr.py --dir ./images --json out/ocr.json
+# 批量转写（脚本会自动切到该 venv）
+python collect-rednote-info/scripts/ocr.py --dir ./images --json out/ocr.json
 ```
 
 没有 NVIDIA 显卡就把 `paddlepaddle-gpu` 换成 `paddlepaddle`，或直接 `--device cpu`。
+权重缓存在 `E:\models\paddleocr\paddlex`，换路径时设 `PADDLE_OCR_HOME`。
 结果不分层级、读不了手写和箭头，落进 md 之前仍要让模型校对一遍。
 
 ## 约定

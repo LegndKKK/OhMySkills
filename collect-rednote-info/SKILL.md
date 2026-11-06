@@ -193,15 +193,17 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
 
 ```powershell
 # 一次进程批量跑（模型只加载一次），结果写 JSON
-.\.venv\Scripts\python.exe scripts\ocr.py --dir "<images目录>" --json "out\ocr.json"
+python scripts/ocr.py --dir "<images目录>" --json "out\ocr.json"
 
 # 直接出 markdown 片段（### NN + ![](相对路径) + 文字）
-.\.venv\Scripts\python.exe scripts\ocr.py --dir "<images目录>" --md
+python scripts/ocr.py --dir "<images目录>" --md
 
 # 更准但慢 3~5 倍；认不出语言时可换 --lang
-.\.venv\Scripts\python.exe scripts\ocr.py --dir "<images目录>" --model server --lang ch
+python scripts/ocr.py --dir "<images目录>" --model server --lang ch
 ```
 
+- 运行时（venv + 权重，约 3.8 GB）在 `E:\models\paddleocr`，**不在 skill 仓库里**；用系统 `python` 调用时脚本会自动切到那里的 venv
+- 换机器或换盘符：设 `PADDLE_OCR_HOME`，目录下要有 `venv\Scripts\python.exe` 和 `paddlex\official_models`
 - 设备默认 `auto`：有可用 CUDA 就走 `gpu:0`，否则 `cpu`；也可显式 `--device cpu`
 - 首次运行自动下载 PP-OCRv5 权重到 `.cache/paddlex/`（mobile 约 20 MB，1~2 分钟；server 约 100 MB，首次 20 s 左右起）
 - 下载源默认 ModelScope（HF 在国内常卡 TLS 握手），可用 `PADDLE_PDX_MODEL_SOURCE=HuggingFace` 覆盖
@@ -209,8 +211,8 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
 - `auto` 判断的是"paddle 编译了 CUDA 且能枚举到卡"，不是"显卡空闲"；显存被占满时请显式 `--device cpu`
 - 输出 JSON 里每张图有 `text`（按行合并）、`lines`、`boxes`、`elapsed`、`score`；`score` 偏低说明图糊或字太艺术，改回模型读图
 - OCR 的已知短板：不分标题/正文层级、多列海报会串行、手写体和艺术字基本失效、图里的箭头关系全丢——**这些情况一律回到模型读图**
-- 环境是独立 venv（`.venv/`，已 gitignore），不动系统 Python；PaddleOCR 缺失或跑挂时**直接回落模型读图**，不要卡在这
-- 报 `ModuleNotFoundError: paddleocr` / 找不到 `.venv` 就是这个可选后端没装好，按仓库 README 装或跳过，不影响主流程
+- 运行时是独立 venv（`E:\models\paddleocr`，不进仓库），不动系统 Python；PaddleOCR 缺失或跑挂时**直接回落模型读图**，不要卡在这
+- 报 `ModuleNotFoundError: paddleocr` / 找不到运行时目录，就是这个可选后端没装好，按仓库 README 装或跳过，不影响主流程
 
 ## 已知边界
 
