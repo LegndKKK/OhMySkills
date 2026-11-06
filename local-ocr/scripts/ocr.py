@@ -56,7 +56,8 @@ def _ensure_runtime():
     raise SystemExit(subprocess.call(cmd, env=env))
 
 
-_ensure_runtime()
+if __name__ == "__main__":
+    _ensure_runtime()
 
 # 本机全局 PYTHONPATH=E:\install 会把系统 numpy 顶到 site-packages 前面，
 # 和 venv 里 paddle 要求的 numpy 版本打架；venv 模式下直接不认 PYTHONPATH。
