@@ -73,7 +73,7 @@ python scripts/xhs.py search "泉州 旅游攻略" --limit 40
   "count": 40,
   "notes": [
     {"index": 1, "id": "6aeb…", "title": "…", "author": "…", "time": "10-11",
-     "tail": "1.2万 | 收藏", "token": "AB…=", "url": "https://www.xiaohongshu.com/explore/…?xsec_token=…"}
+     "like": "1.2万", "tail": "1.2万 | 赞", "token": "AB…=", "url": "https://www.xiaohongshu.com/explore/…?xsec_token=…"}
   ]
 }
 ```

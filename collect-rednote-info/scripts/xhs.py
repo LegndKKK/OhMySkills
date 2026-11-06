@@ -304,14 +304,18 @@ document.querySelectorAll('section.note-item').forEach(s => {
   const m = href.match(/(?:explore|search_result|discovery\\/item)\\/([0-9a-f]{24})/);
   const t = href.match(/xsec_token=([^&]+)/);
   if (!m && !s.dataset.noteId) return;
+  // 结构化取值：innerText 会被「文件」标签、置顶标记等插队，顺序不可靠
+  const q = sel => { const el = s.querySelector(sel); return el ? (el.innerText || '').trim() : ''; };
   const lines = (s.innerText || '').split('\\n').map(x => x.trim()).filter(Boolean);
+  const title = q('a.title span') || q('a.title') || lines[0] || '';
+  const author = q('.author .name') || q('.name') || lines[1] || '';
+  const time = q('.author .time') || q('.time') || lines[2] || '';
+  const like = q('.like-wrapper .count');
   out.push({
     id: (m ? m[1] : null) || s.dataset.noteId || null,
     token: t ? t[1] : null,
-    title: lines[0] || '',
-    author: lines[1] || '',
-    time: lines[2] || '',
-    tail: lines.slice(3).join(' | ')
+    title: title, author: author, time: time, like: like,
+    tail: like ? like + ' | 赞' : lines.slice(3).join(' | ')
   });
 });
 return out;
