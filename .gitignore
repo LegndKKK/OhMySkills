@@ -1,4 +1,8 @@
 __pycache__/
 *.pyc
+.venv/
+.cache/
+models/
+pip_install.log
 .DS_Store
 Thumbs.db
